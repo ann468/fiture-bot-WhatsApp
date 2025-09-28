@@ -1,0 +1,98 @@
+/*
+Jadwal Anime Rilis By Xiao Ann (JANGGAN HAPUS WM NYA)
+✦ Plugin Powered by kurumi.AI
+✦ WhatsApp: https://wa.me/6285117254543
+✦ TikTok: https://tiktok.com/@annturu22
+✦ WhatsApp Channel: https://whatsapp.com/channel/0029VbAa6oDF1YlL3s43Ik1G
+✦ https://whatsapp.com/channel/0029VbAVwGCKmCPMSBYyfF3C
+*/
+
+import fetch from "node-fetch";
+
+function convertTo24Hour(timeStr) {
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s?(AM|PM)/i);
+    if (!match) return timeStr;
+    let [_, h, m, meridian] = match;
+    h = parseInt(h, 10);
+    if (meridian.toUpperCase() === "PM" && h < 12) h += 12;
+    if (meridian.toUpperCase() === "AM" && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${m}`;
+}
+
+function getTargetDate(hariIndo, input, wib) {
+    let targetIndex = hariIndo.indexOf(input);
+    if (targetIndex < 0) return wib;
+    let nowIndex = wib.getDay();
+    let diff = (targetIndex - nowIndex + 7) % 7;
+    if (diff === 0) diff = 7;
+    let targetDate = new Date(wib);
+    targetDate.setDate(wib.getDate() + diff);
+    return targetDate;
+}
+
+const handler = async (ann, m, { args }) => {
+    const hariIndo = [
+        "minggu",
+        "senin",
+        "selasa",
+        "rabu",
+        "kamis",
+        "jumat",
+        "sabtu"
+    ];
+    const input = (args[0] || "").toLowerCase();
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const wib = new Date(utc + 3600000 * 7);
+    const targetDate = getTargetDate(hariIndo, input, wib);
+    const tahun = targetDate.getFullYear();
+    const bulan = String(targetDate.getMonth() + 1).padStart(2, "0");
+    const tanggal = String(targetDate.getDate()).padStart(2, "0");
+    const hariNow = hariIndo[targetDate.getDay()];
+    const url = `https://izumiiiiiiii.dpdns.org/update/livechart?year=${tahun}&month=${bulan}&date=${tanggal}`;
+    try {
+        const res = await fetch(url);
+        const json = await res.json();
+        if (!json?.result?.length) {
+            return m.reply(
+                `📭 Gak ada jadwal anime untuk ${tanggal}-${bulan}-${tahun}`
+            );
+        }
+        let found = json.result.find(x =>
+            x.day?.toLowerCase().includes(hariNow)
+        );
+        if (!found) found = json.result[0];
+        if (!found?.anime?.length) {
+            return m.reply(`📭 Gak ada anime tayang hari ${hariNow}`);
+        }
+        let teks = `*_JADWAL ANIME HARI ${hariNow.toUpperCase()}_*\n\n`;
+        for (let a of found.anime) {
+            if (!a.title) continue;
+            const title = a.title.replace(/\s+/g, " ").trim();
+            let eps = "-";
+            if (a.eps) {
+                const match = a.eps.match(/(\d+)/);
+                if (match) eps = `EPISODE ${match[1]}`;
+            }
+            let jam = "-";
+            if (a.time) jam = convertTo24Hour(a.time);
+            teks += `> ${title}\n- [${eps}]\n- Jam ${jam} WIB\n`;
+        }
+        return m.reply(teks.trim());
+    } catch (e) {
+        console.error("[ERROR]", e);
+        return m.reply(`*ERROR:* ${e.message}`);
+    }
+};
+
+handler.command = ["jdrilis"];
+handler.help = ["jdrilis <hari>"];
+handler.tags = ["anime"];
+handler.private = false;
+handler.onlyOwner = false;
+handler.onlyPremium = false;
+handler.onlyGroup = false;
+handler.onlyAdmin = false;
+handler.botAdmin = false;
+
+export default handler;
